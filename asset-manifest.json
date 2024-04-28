@@ -1,0 +1,11 @@
+{
+  "files": {
+    "main.js": "/TipsDashboard/static/js/main.2c1c5b8e.js",
+    "static/media/tips.csv": "/TipsDashboard/static/media/tips.43007c7e472255eef549.csv",
+    "index.html": "/TipsDashboard/index.html",
+    "main.2c1c5b8e.js.map": "/TipsDashboard/static/js/main.2c1c5b8e.js.map"
+  },
+  "entrypoints": [
+    "static/js/main.2c1c5b8e.js"
+  ]
+}
