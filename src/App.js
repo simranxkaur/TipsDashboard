@@ -18,6 +18,18 @@ function correlationCoefficient(array1, array2) {
 
 
 class App extends Component {
+  constructor(props) {
+    super(props);
+    this.state = {
+      target: "total_bill",
+    };
+    this.targetDropdown = this.targetDropdown.bind(this);
+  }
+
+  targetDropdown(event) {
+    this.setState({ target: event.target.value });
+  }
+  
   componentDidMount() {
     // Call the function to draw the chart after the SVG elements are rendered
     this.drawBarChart();
@@ -28,7 +40,7 @@ class App extends Component {
   scatterPlot() {
     d3.csv(tipData).then(data => {
       const margin = { top: 50, right: 50, bottom: 50, left: 50 };
-      const width = 600 - margin.left - margin.right;
+      const width = 1200 - margin.left - margin.right;
       const height = 600 - margin.top - margin.bottom;
   
       const svg = d3.select('#scatterplot')
@@ -51,7 +63,7 @@ class App extends Component {
         .attr('cx', d => xScale(+d.total_bill))
         .attr('cy', d => yScale(+d.tip))
         .attr('r', 5)
-        .attr('fill', 'steelblue');
+        .attr('fill', 'grey');
   
       svg.append('g')
         .attr('transform', `translate(0,${height})`)
@@ -62,7 +74,7 @@ class App extends Component {
 
       svg.append("text")
         .text("Total Bill")
-        .attr("x", 250)
+        .attr("x", width / 2)
         .attr("y", 550);
 
         svg.append("text")
@@ -93,8 +105,11 @@ class App extends Component {
         variables.map((variable2, j) => i === j ? 1 : correlationCoefficient(data.map(d => +d[variable1]), data.map(d => +d[variable2])))
       );
   
-      const colorScale = d3.scaleSequential(d3.interpolateBlues)
-        .domain([-1, 1]);
+      // const colorScale = d3.scaleSequential(d3.interpolateBlues)
+      //   .domain([-1, 1]);
+      const colorScale = d3.scaleSequential()
+        .domain([-1, 1])
+        .interpolator(d3.interpolatePlasma);
   
       const xScale = d3.scaleBand()
         .domain(variables)
@@ -113,10 +128,29 @@ class App extends Component {
         .attr("width", xScale.bandwidth())
         .attr("height", yScale.bandwidth())
         .style("fill", d => colorScale(d));
-  
+
+      svg.selectAll(".corr-label")
+        .data(correlationMatrix.flat())
+        .enter()
+        .append("text")
+        .attr("class", "corr-label")
+        .attr("x", (d, i) => xScale(variables[i % variables.length]) + xScale.bandwidth() / 2)
+        .attr("y", (d, i) => yScale(variables[Math.floor(i / variables.length)]) + yScale.bandwidth() / 2)
+        .attr("dy", "0.5em")
+        .attr("text-anchor", "middle")
+        .style("fill", "black")
+        .text(d => d.toFixed(2));
+      
       svg.append("g")
         .attr("transform", "translate(0," + height + ")")
         .call(d3.axisBottom(xScale));
+
+      svg.append("text")
+        .attr("x", width / 2)
+        .attr("y", -10)
+        .attr("text-anchor", "middle")
+        .style("font-size", "20px")
+        .text("Correlation Matrix");
 
       svg.append("g")
         .call(d3.axisLeft(yScale));
@@ -130,7 +164,7 @@ class App extends Component {
       console.log(data);
 
       const margin = { top: 50, right: 50, bottom: 50, left: 50 };
-      const width = 700 - margin.left - margin.right;
+      const width = 600 - margin.left - margin.right;
       const height = 700 - margin.top - margin.bottom;
 
       const svg = d3.select("#bar")
@@ -157,7 +191,8 @@ class App extends Component {
         .attr('width', xScale.bandwidth())
         .attr('y', d => yScale(+d.total_bill))
         .attr('height', d => height - yScale(+d.total_bill))
-        .style('fill', 'steelblue');
+        .style('fill', 'grey');
+
 
       svg.append('g')
         .attr('transform', `translate(0, ${height})`)
@@ -193,6 +228,15 @@ class App extends Component {
         <svg id="bar" width="600" height="700"></svg>
         <svg id="matrix" width="600" height="700"></svg>
         <svg id="scatterplot" width="600" height="700"></svg>
+        <select value={this.state.target} onChange={this.targetDropdown}>
+          <option value="total_bill">Total Bill</option>
+          <option value="tip">Tip</option>
+          <option value="sex">Sex</option>
+          <option value="smoker">Smoker</option>
+          <option value="day">Day</option>
+          <option value="time">Time</option>
+          <option value="size">Size</option>
+        </select>
       </div>
     );
   }
