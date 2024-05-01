@@ -22,14 +22,24 @@ class App extends Component {
     super(props);
     this.state = {
       target: "total_bill",
+      selectedXAxis: "day",
     };
-    this.targetDropdown = this.targetDropdown.bind(this);
   }
 
-  targetDropdown(event) {
-    this.setState({ target: event.target.value });
+  targetDropdown = (event) => {
+    const selectedVariable = event.target.value;
+    this.setState({ target: selectedVariable }, () => {
+      this.drawBarChart();
+    });
   }
-  
+
+  handleXAxisChange = (event) => {
+    const selectedXAxis = event.target.value;
+    this.setState({ selectedXAxis: selectedXAxis }, () => {
+      this.drawBarChart();
+    });
+  }
+
   componentDidMount() {
     // Call the function to draw the chart after the SVG elements are rendered
     this.drawBarChart();
@@ -90,8 +100,8 @@ class App extends Component {
   drawCorrelationMatrix() {
     d3.csv(tipData).then(data => {
       const margin = { top: 30, right: 30, bottom: 30, left: 30 };
-      const width = 600 - margin.left - margin.right;
-      const height = 600 - margin.top - margin.bottom;
+      const width = 400 - margin.left - margin.right;
+      const height = 400 - margin.top - margin.bottom;
 
       const svg = d3.select("#matrix")
         .append("svg")
@@ -104,21 +114,19 @@ class App extends Component {
       const correlationMatrix = variables.map((variable1, i) =>
         variables.map((variable2, j) => i === j ? 1 : correlationCoefficient(data.map(d => +d[variable1]), data.map(d => +d[variable2])))
       );
-  
-      // const colorScale = d3.scaleSequential(d3.interpolateBlues)
-      //   .domain([-1, 1]);
-      const colorScale = d3.scaleSequential()
-        .domain([-1, 1])
-        .interpolator(d3.interpolatePlasma);
-  
+
       const xScale = d3.scaleBand()
         .domain(variables)
         .range([0, width]);
-  
+
       const yScale = d3.scaleBand()
         .domain(variables)
         .range([height, 0]);
-  
+
+      const colorScale = d3.scaleSequential()
+        .domain([-1, 1])
+        .interpolator(d3.interpolatePlasma);
+
       svg.selectAll()
         .data(correlationMatrix.flat())
         .enter()
@@ -127,7 +135,11 @@ class App extends Component {
         .attr("y", (d, i) => yScale(variables[Math.floor(i / variables.length)]))
         .attr("width", xScale.bandwidth())
         .attr("height", yScale.bandwidth())
-        .style("fill", d => colorScale(d));
+        .style("fill", d => colorScale(d))
+        .on("click", (event, d, i) => {
+          const variable1 = variables[i % variables.length];
+          const variable2 = variables[Math.floor(i / variables.length)];
+        });
 
       svg.selectAll(".corr-label")
         .data(correlationMatrix.flat())
@@ -140,7 +152,7 @@ class App extends Component {
         .attr("text-anchor", "middle")
         .style("fill", "black")
         .text(d => d.toFixed(2));
-      
+
       svg.append("g")
         .attr("transform", "translate(0," + height + ")")
         .call(d3.axisBottom(xScale));
@@ -159,7 +171,8 @@ class App extends Component {
     });
   }
   
-  drawBarChart() {
+  drawBarChart = () => {
+    d3.select("#bar").selectAll("*").remove();
     d3.csv(tipData).then(data => {
       console.log(data);
 
@@ -167,30 +180,51 @@ class App extends Component {
       const width = 600 - margin.left - margin.right;
       const height = 700 - margin.top - margin.bottom;
 
+      const selectedVariable = this.state.target;
+      const selectedXAxis = this.state.selectedXAxis;
+
       const svg = d3.select("#bar")
         .attr("width", width + margin.left + margin.right)
         .attr("height", height + margin.top + margin.bottom)
         .append("g")
         .attr("transform", `translate(${margin.left},${margin.top})`);
 
+      console.log(selectedVariable)
+      console.log(selectedXAxis)
+
+      const groupedData = data.reduce((acc, cur) => {
+        const key = cur[selectedVariable];
+        if (!acc[key]) {
+          acc[key] = { sum: 0, count: 0 };
+        }
+        acc[key].sum += +cur[selectedVariable];
+        acc[key].count++;
+        return acc;
+      }, {});
+  
+      const averageData = Object.entries(groupedData).map(([key, value]) => ({
+        key,
+        value: value.sum / value.count
+      }));
+      
       const xScale = d3.scaleBand()
         .range([0, width])
-        .domain(data.map(d => d.day))
+        .domain(data.map(d => d[selectedXAxis]))
         .padding(0.2); // Adjust the padding between bars
 
       const yScale = d3.scaleLinear()
         .range([height, 0])
-        .domain([0, d3.max(data, d => +d.total_bill)])
+        .domain([0, d3.max(data, d => +d[selectedVariable])])
         .nice();
 
       svg.selectAll('.bar')
         .data(data)
         .enter().append('rect')
         .attr('class', 'bar')
-        .attr('x', d => xScale(d.day))
+        .attr('x', d => xScale(d[selectedXAxis]))
         .attr('width', xScale.bandwidth())
-        .attr('y', d => yScale(+d.total_bill))
-        .attr('height', d => height - yScale(+d.total_bill))
+        .attr('y', d => yScale(+d[selectedVariable]))
+        .attr('height', d => height - yScale(+d[selectedVariable]))
         .style('fill', 'grey');
 
 
@@ -202,20 +236,21 @@ class App extends Component {
         .call(d3.axisLeft(yScale));
 
       svg.append("text")
-        .text("Day")
+        .text(selectedXAxis)
         .attr("x", 300)
         .attr("y", 630);
 
+      // svg.append("text")
+      //   .text("Total Bill (average)")
+      //   .attr("x", -300)
+      //   .attr("y", -30)
+      //   .attr("transform", "rotate(-90)");
       svg.append("text")
-        .text("Total Bill (average)")
+        .text(`${selectedVariable.replace('_', ' ').toUpperCase()} (average)`) // Update text to reflect the selected variable
         .attr("x", -300)
         .attr("y", -30)
         .attr("transform", "rotate(-90)");
 
-      svg.append("text")
-        .text("Assignment 5")
-        .attr("x", 500)
-        .attr("y", 10);
     }).catch(error => {
       console.error('Error loading the data: ', error);
     });
@@ -225,18 +260,58 @@ class App extends Component {
     return (
       <div>
         {/* Render the SVG elements */}
-        <svg id="bar" width="600" height="700"></svg>
-        <svg id="matrix" width="600" height="700"></svg>
-        <svg id="scatterplot" width="600" height="700"></svg>
+        {/* <svg id="title" width="600" height="100">
+          <text x="300" y="50" textAnchor="middle">Assignment 5</text>
+        </svg> */}
+        <div style={{ backgroundColor: "#d3d3d3" , padding: "10px", display: "flex", justifyContent: "center", alignItems: "center" }}>
+          Select Target:
         <select value={this.state.target} onChange={this.targetDropdown}>
           <option value="total_bill">Total Bill</option>
           <option value="tip">Tip</option>
-          <option value="sex">Sex</option>
-          <option value="smoker">Smoker</option>
-          <option value="day">Day</option>
-          <option value="time">Time</option>
           <option value="size">Size</option>
         </select>
+        </div>
+        <div>
+          <input
+            type="radio"
+            id="sex"
+            name="xAxis"
+            value="sex"
+            checked={this.state.selectedXAxis === "sex"}
+            onChange={this.handleXAxisChange}
+          />
+          <label htmlFor="sex">Sex</label>
+          <input
+            type="radio"
+            id="smoker"
+            name="xAxis"
+            value="smoker"
+            checked={this.state.selectedXAxis === "smoker"}
+            onChange={this.handleXAxisChange}
+          />
+          <label htmlFor="smoker">Smoker</label>
+          <input
+            type="radio"
+            id="day"
+            name="xAxis"
+            value="day"
+            checked={this.state.selectedXAxis === "day"}
+            onChange={this.handleXAxisChange}
+          />
+          <label htmlFor="day">Day</label>
+          <input
+            type="radio"
+            id="time"
+            name="xAxis"
+            value="time"
+            checked={this.state.selectedXAxis === "time"}
+            onChange={this.handleXAxisChange}
+          />
+          <label htmlFor="time">Time</label>
+        </div>
+        <svg id="bar" width="600" height="700"></svg>
+        <svg id="matrix" width="600" height="700"></svg>
+        <svg id="scatterplot" width="600" height="700"></svg>
       </div>
     );
   }
