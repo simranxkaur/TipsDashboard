@@ -1,11 +1,11 @@
 {
   "files": {
-    "main.js": "/TipsDashboard/static/js/main.64a35063.js",
+    "main.js": "/TipsDashboard/static/js/main.0e28c4e7.js",
     "static/media/tips.csv": "/TipsDashboard/static/media/tips.43007c7e472255eef549.csv",
     "index.html": "/TipsDashboard/index.html",
-    "main.64a35063.js.map": "/TipsDashboard/static/js/main.64a35063.js.map"
+    "main.0e28c4e7.js.map": "/TipsDashboard/static/js/main.0e28c4e7.js.map"
   },
   "entrypoints": [
-    "static/js/main.64a35063.js"
+    "static/js/main.0e28c4e7.js"
   ]
 }
