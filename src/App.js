@@ -24,6 +24,7 @@ class App extends Component {
       target: "total_bill",
       selectedXAxis: "day",
     };
+    this.scatterPlot = this.scatterPlot.bind(this);
   }
 
   targetDropdown = (event) => {
@@ -43,59 +44,63 @@ class App extends Component {
   componentDidMount() {
     // Call the function to draw the chart after the SVG elements are rendered
     this.drawBarChart();
-    this.scatterPlot();
+
+    const initVar1 = 'total_bill';
+    const initVar2 = 'tip';
+    this.scatterPlot(initVar1,initVar2);
     this.drawCorrelationMatrix();
   }
 
-  scatterPlot() {
+  scatterPlot(selectedVariable1, selectedVariable2) {
+    d3.select("#scatterplot").selectAll("*").remove();
     d3.csv(tipData).then(data => {
       const margin = { top: 50, right: 50, bottom: 50, left: 50 };
       const width = 1200 - margin.left - margin.right;
       const height = 600 - margin.top - margin.bottom;
   
       const svg = d3.select('#scatterplot')
-        .attr("width", width + margin.left + margin.right)
-        .attr("height", height + margin.top + margin.bottom)
-        .append("g")
-        .attr("transform", `translate(${margin.left},${margin.top})`);
+          .attr("width", width + margin.left + margin.right)
+          .attr("height", height + margin.top + margin.bottom)
+          .append("g")
+          .attr("transform", `translate(${margin.left},${margin.top})`);
   
       const xScale = d3.scaleLinear()
-        .domain([0, d3.max(data, d => +d.total_bill)])
-        .range([0, width]);
+          .domain([0, d3.max(data, d => +d[selectedVariable1])])
+          .range([0, width]);
   
       const yScale = d3.scaleLinear()
-        .domain([0, d3.max(data, d => +d.tip)])
-        .range([height, 0]);
+          .domain([0, d3.max(data, d => +d[selectedVariable2])])
+          .range([height, 0]);
   
       svg.selectAll('circle')
-        .data(data)
-        .enter().append('circle')
-        .attr('cx', d => xScale(+d.total_bill))
-        .attr('cy', d => yScale(+d.tip))
-        .attr('r', 5)
-        .attr('fill', 'grey');
+          .data(data)
+          .enter().append('circle')
+          .attr('cx', d => xScale(+d[selectedVariable1]))
+          .attr('cy', d => yScale(+d[selectedVariable2]))
+          .attr('r', 5)
+          .attr('fill', 'grey');
   
       svg.append('g')
-        .attr('transform', `translate(0,${height})`)
-        .call(d3.axisBottom(xScale));
+          .attr('transform', `translate(0,${height})`)
+          .call(d3.axisBottom(xScale));
   
       svg.append('g')
-        .call(d3.axisLeft(yScale));
-
+          .call(d3.axisLeft(yScale));
+  
       svg.append("text")
-        .text("Total Bill")
-        .attr("x", width / 2)
-        .attr("y", 550);
-
-        svg.append("text")
-        .text("Tips")
-        .attr("x", -50)
-        .attr("y", 250);
-
+          .text(selectedVariable1)
+          .attr("x", width / 2)
+          .attr("y", 550);
+  
+      svg.append("text")
+          .text(selectedVariable2)
+          .attr("x", -50)
+          .attr("y", 250);
+    
     }).catch(error => {
-      console.error('Error loading the data: ', error);
+        console.error('Error loading the data: ', error);
     });
-  }
+}
   
   drawCorrelationMatrix() {
     d3.csv(tipData).then(data => {
@@ -111,9 +116,20 @@ class App extends Component {
         .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
 
       const variables = ['total_bill', 'tip', 'size'];
+      // const correlationMatrix = variables.map((variable1, i) =>
+      //   variables.map((variable2, j) => i === j ? 1 : correlationCoefficient(data.map(d => +d[variable1]), data.map(d => +d[variable2])))
+      // );
+
       const correlationMatrix = variables.map((variable1, i) =>
-        variables.map((variable2, j) => i === j ? 1 : correlationCoefficient(data.map(d => +d[variable1]), data.map(d => +d[variable2])))
-      );
+        variables.map((variable2, j) => {
+            if (i === j) {
+                return { variable1, variable2, correlation: 1 };
+            } else {
+                const correlation = correlationCoefficient(data.map(d => +d[variable1]), data.map(d => +d[variable2]));
+                return { variable1, variable2, correlation };
+            }
+        })
+    );
 
       const xScale = d3.scaleBand()
         .domain(variables)
@@ -127,6 +143,8 @@ class App extends Component {
         .domain([-1, 1])
         .interpolator(d3.interpolatePlasma);
 
+      const correlationValues = correlationMatrix.flat().map(item => item.correlation);
+
       svg.selectAll()
         .data(correlationMatrix.flat())
         .enter()
@@ -135,14 +153,16 @@ class App extends Component {
         .attr("y", (d, i) => yScale(variables[Math.floor(i / variables.length)]))
         .attr("width", xScale.bandwidth())
         .attr("height", yScale.bandwidth())
-        .style("fill", d => colorScale(d))
-        .on("click", (event, d, i) => {
-          const variable1 = variables[i % variables.length];
-          const variable2 = variables[Math.floor(i / variables.length)];
-        });
+        .style("fill", d => colorScale(d.correlation))
+        .on("click", (event, d) => {
+          const variable1 = d.variable1;
+          const variable2 = d.variable2;
+          this.scatterPlot(variable1, variable2);
+      });
+      
 
       svg.selectAll(".corr-label")
-        .data(correlationMatrix.flat())
+        .data(correlationValues)
         .enter()
         .append("text")
         .attr("class", "corr-label")
@@ -178,7 +198,7 @@ class App extends Component {
 
       const margin = { top: 50, right: 50, bottom: 50, left: 50 };
       const width = 600 - margin.left - margin.right;
-      const height = 700 - margin.top - margin.bottom;
+      const height = 400 - margin.top - margin.bottom;
 
       const selectedVariable = this.state.target;
       const selectedXAxis = this.state.selectedXAxis;
@@ -192,20 +212,6 @@ class App extends Component {
       console.log(selectedVariable)
       console.log(selectedXAxis)
 
-      const groupedData = data.reduce((acc, cur) => {
-        const key = cur[selectedVariable];
-        if (!acc[key]) {
-          acc[key] = { sum: 0, count: 0 };
-        }
-        acc[key].sum += +cur[selectedVariable];
-        acc[key].count++;
-        return acc;
-      }, {});
-  
-      const averageData = Object.entries(groupedData).map(([key, value]) => ({
-        key,
-        value: value.sum / value.count
-      }));
       
       const xScale = d3.scaleBand()
         .range([0, width])
@@ -309,8 +315,8 @@ class App extends Component {
           />
           <label htmlFor="time">Time</label>
         </div>
-        <svg id="bar" width="600" height="700"></svg>
-        <svg id="matrix" width="600" height="700"></svg>
+        <svg id="bar" width="600" height="400"></svg>
+        <svg id="matrix" width="600" height="400"></svg>
         <svg id="scatterplot" width="600" height="700"></svg>
       </div>
     );
